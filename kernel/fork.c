@@ -169,9 +169,12 @@ static struct thread_info *alloc_thread_info_node(struct task_struct *tsk,
 	return page ? page_address(page) : NULL;
 }
 
+extern void kaiser_remove_mapping(unsigned long start_addr, unsigned long size);
 static inline void free_thread_info(struct thread_info *ti)
 {
-	kasan_alloc_pages(virt_to_page(ti), THREAD_SIZE_ORDER);
+#ifdef CONFIG_KAISER
+	kaiser_remove_mapping((unsigned long)ti, THREAD_SIZE);
+#endif
 	free_kmem_pages((unsigned long)ti, THREAD_SIZE_ORDER);
 }
 # else
