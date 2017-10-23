@@ -1053,6 +1053,31 @@ DEFINE_EVENT(perf_cl_peak_timer_status, perf_cl_peak_exit_timer_stop,
 		timer_rate, mode)
 );
 
+TRACE_EVENT(sched_sugov_util,
+
+	TP_PROTO(int cpu, unsigned long rt, unsigned long cfs,
+		 unsigned long total),
+
+	TP_ARGS(cpu, rt, cfs, total),
+
+	TP_STRUCT__entry(
+		__field( int,	cpu				)
+		__field( unsigned long,	rt_util			)
+		__field( unsigned long,	cfs_util		)
+		__field( unsigned long,	total_util		)
+	),
+
+	TP_fast_assign(
+		__entry->cpu			= cpu;
+		__entry->rt_util		= rt;
+		__entry->cfs_util		= cfs;
+		__entry->total_util		= total;
+	),
+
+	TP_printk("cpu=%d rt_util=%lu cfs_util=%lu total_util=%lu",
+		  __entry->cpu, __entry->rt_util, __entry->cfs_util,
+		  __entry->total_util)
+);
 #endif /* _TRACE_POWER_H */
 
 /* This part must be outside protection */
