@@ -3741,6 +3741,18 @@ static int binder_free_thread(struct binder_proc *proc,
 	binder_queue_for_zombie_cleanup(proc);
 	binder_proc_unlock(thread->proc, __LINE__);
 
+
+	/*
+	 * If this thread used poll, make sure we remove the waitqueue
+	 * from any epoll data structures holding it with POLLFREE.
+	 * waitqueue_active() is safe to use here because we're holding
+	 * the inner lock.
+	 */
+	if ((thread->looper & BINDER_LOOPER_STATE_POLL) &&
+	    waitqueue_active(&thread->wait)) {
+		wake_up_poll(&thread->wait, POLLHUP | POLLFREE);
+	}
+
 	if (send_reply)
 		binder_send_failed_reply(send_reply, BR_DEAD_REPLY);
 	binder_stats_zombie(BINDER_STAT_THREAD);
