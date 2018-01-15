@@ -5317,6 +5317,8 @@ struct energy_env {
 	} cap;
 };
 
+static DEFINE_PER_CPU(struct energy_env, energy_env);
+
 static int cpu_util_wake(int cpu, struct task_struct *p);
 
 /*
@@ -6731,14 +6733,14 @@ select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync)
 
 	if (target_cpu != prev_cpu) {
 		int delta = 0;
-		struct energy_env eenv = {
-			.util_delta     = task_util(p),
-			.src_cpu        = prev_cpu,
-			.dst_cpu        = target_cpu,
-			.task           = p,
-			.trg_cpu	= target_cpu,
-		};
+		struct energy_env *eenv = this_cpu_ptr(&energy_env);
 
+		memset(eenv, 0x0, sizeof(*eenv));
+		eenv->util_delta = task_util(p);
+		eenv->task	 = p;
+		eenv->src_cpu	 = prev_cpu;
+		eenv->dst_cpu	 = target_cpu;
+		eenv->trg_cpu	 = target_cpu;
 
 #ifdef CONFIG_SCHED_WALT
 		if (!walt_disabled && sysctl_sched_use_walt_cpu_util &&
@@ -6752,14 +6754,14 @@ select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync)
 			goto unlock;
 		}
 
-		if (energy_diff(&eenv) >= 0) {
+		if (energy_diff(eenv) >= 0) {
 			/* No energy saving for target_cpu, try backup */
 			target_cpu = tmp_backup;
-			eenv.dst_cpu = target_cpu;
-			eenv.trg_cpu = target_cpu;
-			if (tmp_backup < 0 ||
+			eenv->dst_cpu = target_cpu;
+			eenv->trg_cpu = target_cpu;
+			if (tmp_backup < 0 || 
 			    tmp_backup == prev_cpu ||
-			    energy_diff(&eenv) >= 0) {
+			    energy_diff(eenv) >= 0) {
 				schedstat_inc(p, se.statistics.nr_wakeups_secb_no_nrg_sav);
 				schedstat_inc(this_rq(), eas_stats.secb_no_nrg_sav);
 				target_cpu = prev_cpu;
