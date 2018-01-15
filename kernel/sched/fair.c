@@ -5314,6 +5314,9 @@ struct energy_env {
 		int		cap;
 		int		used;
 	} cpu[NR_CPUS];
+
+	/* Mask of CPUs candidates to evaluate */
+	cpumask_t cpus_mask;
 };
 
 static DEFINE_PER_CPU(struct energy_env, energy_env);
@@ -6698,6 +6701,9 @@ select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync)
 	struct sched_domain *sd;
 	int target_cpu = prev_cpu, tmp_target, tmp_backup;
 	bool boosted, prefer_idle;
+	int delta = 0;
+	struct energy_env *eenv = this_cpu_ptr(&energy_env);
+	int cpu;
 
 	schedstat_inc(p, se.statistics.nr_wakeups_secb_attempts);
 	schedstat_inc(this_rq(), eas_stats.secb_attempts);
@@ -6730,59 +6736,69 @@ select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync)
 	if (!sd)
 		goto unlock;
 	if (tmp_target >= 0) {
-		target_cpu = tmp_target;
-		if ((boosted || prefer_idle) && idle_cpu(target_cpu)) {
+		if ((boosted || prefer_idle) && idle_cpu(tmp_target)) {
 			schedstat_inc(p, se.statistics.nr_wakeups_secb_idle_bt);
 			schedstat_inc(this_rq(), eas_stats.secb_idle_bt);
+			target_cpu = tmp_target;
 			goto unlock;
 		}
 	}
 
-	if (target_cpu != prev_cpu) {
-		int delta = 0;
-		struct energy_env *eenv = this_cpu_ptr(&energy_env);
-
-		memset(eenv, 0x0, sizeof(*eenv));
-		eenv->util_delta = task_util(p);
-		eenv->task	 = p;
-		eenv->src_cpu	 = prev_cpu;
-		eenv->dst_cpu	 = target_cpu;
-		eenv->trg_cpu	 = target_cpu;
+	memset(eenv, 0x0, sizeof(*eenv));
+	cpumask_clear(&eenv->cpus_mask);
+	eenv->util_delta = task_util(p);
+	eenv->task = p;
 
 #ifdef CONFIG_SCHED_WALT
-		if (!walt_disabled && sysctl_sched_use_walt_cpu_util &&
-			p->state == TASK_WAKING)
-			delta = task_util(p);
+	if (!walt_disabled && sysctl_sched_use_walt_cpu_util &&
+		p->state == TASK_WAKING)
+		delta = task_util(p);
 #endif
-		/* Not enough spare capacity on previous cpu */
-		if (__cpu_overutilized(prev_cpu, delta)) {
-			schedstat_inc(p, se.statistics.nr_wakeups_secb_insuff_cap);
-			schedstat_inc(this_rq(), eas_stats.secb_insuff_cap);
-			goto unlock;
-		}
+	/* Not enough spare capacity on previous cpu */
+	if (__cpu_overutilized(prev_cpu, delta)) {
+		schedstat_inc(p, se.statistics.nr_wakeups_secb_insuff_cap);
+		schedstat_inc(this_rq(), eas_stats.secb_insuff_cap);
+	} else {
+		cpumask_set_cpu(prev_cpu, &eenv->cpus_mask);
+	}
 
-		if (energy_diff(eenv) >= 0) {
-			/* No energy saving for target_cpu, try backup */
-			target_cpu = tmp_backup;
-			eenv->dst_cpu = target_cpu;
-			eenv->trg_cpu = target_cpu;
-			if (tmp_backup < 0 || 
-			    tmp_backup == prev_cpu ||
-			    energy_diff(eenv) >= 0) {
-				schedstat_inc(p, se.statistics.nr_wakeups_secb_no_nrg_sav);
-				schedstat_inc(this_rq(), eas_stats.secb_no_nrg_sav);
-				target_cpu = prev_cpu;
-				goto unlock;
-			}
-		}
+	if (tmp_target >= 0)
+		cpumask_set_cpu(tmp_target, &eenv->cpus_mask);
+	if (tmp_backup >= 0)
+		cpumask_set_cpu(tmp_backup, &eenv->cpus_mask);
 
-		schedstat_inc(p, se.statistics.nr_wakeups_secb_nrg_sav);
-		schedstat_inc(this_rq(), eas_stats.secb_nrg_sav);
+	if (!cpumask_weight(&eenv->cpus_mask)) {
+		schedstat_inc(p, se.statistics.nr_wakeups_secb_count);
+		schedstat_inc(this_rq(), eas_stats.secb_count);
 		goto unlock;
 	}
 
-	schedstat_inc(p, se.statistics.nr_wakeups_secb_count);
-	schedstat_inc(this_rq(), eas_stats.secb_count);
+	/* Give the previous CPU with higher priority */
+	if (cpumask_test_cpu(prev_cpu, &eenv->cpus_mask))
+		target_cpu = prev_cpu;
+	else
+		target_cpu = cpumask_first(&eenv->cpus_mask);
+
+	for_each_cpu(cpu, &eenv->cpus_mask) {
+
+		if (target_cpu == cpu)
+			continue;
+
+		eenv->src_cpu = target_cpu;
+		eenv->dst_cpu = cpu;
+		eenv->trg_cpu = cpu;
+
+		if (energy_diff(eenv) < 0)
+			target_cpu = cpu;
+	}
+
+	if (target_cpu == prev_cpu) {
+		schedstat_inc(p, se.statistics.nr_wakeups_secb_no_nrg_sav);
+		schedstat_inc(this_rq(), eas_stats.secb_no_nrg_sav);
+	} else {
+		schedstat_inc(p, se.statistics.nr_wakeups_secb_nrg_sav);
+		schedstat_inc(this_rq(), eas_stats.secb_nrg_sav);
+	}
 
 unlock:
 	rcu_read_unlock();
