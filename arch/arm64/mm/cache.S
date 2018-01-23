@@ -252,7 +252,7 @@ ENTRY(__dma_flush_range)
 	cmp	x0, x1
 	b.lo	1b
 	dsb	sy
-	uaccess_ttbr0_disable x1
+	uaccess_ttbr0_disable x1, x2
 	ret
 ENDPIPROC(__dma_flush_range)
 
