@@ -5563,6 +5563,8 @@ static inline bool cpu_in_sg(struct sched_group *sg, int cpu)
 	return cpu != -1 && cpumask_test_cpu(cpu, sched_group_cpus(sg));
 }
 
+static inline unsigned long task_util(struct task_struct *p);
+
 /*
  * compute_task_energy(): Computes the absolute energy consumption for
  * waken task on specific CPU. It calculates the energy data twice,
@@ -6621,7 +6623,7 @@ static inline int find_best_nrg_target(struct task_struct *p, bool boosted,
 			 * so prev_cpu will receive a negative bias due to the double
 			 * accounting. However, the blocked utilization may be zero.
 			 */
-			wake_util = cpu_util_wake(i, p, false);
+			wake_util = cpu_util_wake(i, p);
 			new_util = wake_util + task_util(p);
 
 			/*
