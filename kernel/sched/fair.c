@@ -5302,18 +5302,19 @@ struct energy_env {
 	int			dst_cpu;
 	int			trg_cpu;
 	int			energy;
-	struct task_struct	*task;
-
-	int			nrg_delta;
-	int			nrg_diff;
-	int			cap_delta;
 	int			payoff;
-
+	struct task_struct	*task;
 	struct {
-		int		nrg;
-		int		cap;
-		int		used;
-	} cpu[NR_CPUS];
+		int before;
+		int after;
+		int delta;
+		int diff;
+	} nrg;
+	struct {
+		int before;
+		int after;
+		int delta;
+	} cap;
 };
 
 static DEFINE_PER_CPU(struct energy_env, energy_env);
@@ -5590,9 +5591,6 @@ static int compute_task_energy(struct energy_env *eenv, int cpu)
 	unsigned int prev_cap_idx, next_cap_idx;
 	unsigned long energy;
 
-	if (eenv->cpu[cpu].used)
-		return 0;
-
 	sd = rcu_dereference(per_cpu(sd_scs, cpu));
 	if (!sd)
 		return 0;
@@ -5630,6 +5628,16 @@ static int compute_task_energy(struct energy_env *eenv, int cpu)
 	else
 		eenv->sg_top = sd->groups;
 
+	/* Remove capacity of src CPU (before task move) */
+	if (cpu == eenv->src_cpu) {
+		eenv->cap.before = sg->sge->cap_states[next_cap_idx].cap;
+		eenv->cap.delta -= eenv->cap.before;
+	/* Add capacity of dst CPU  (after task move) */
+	} else if (cpu == eenv->dst_cpu) {
+		eenv->cap.after  = sg->sge->cap_states[next_cap_idx].cap;
+		eenv->cap.delta += eenv->cap.after;
+	}
+
 	/* Calculate the energy before task placement */
 	eenv->trg_cpu = -1;
 	eenv->cap_idx = prev_cap_idx;
@@ -5640,10 +5648,6 @@ static int compute_task_energy(struct energy_env *eenv, int cpu)
 	eenv->trg_cpu = cpu;
 	eenv->cap_idx = next_cap_idx;
 	sched_group_hierarchy_energy(eenv, cpu);
-
-	eenv->cpu[cpu].cap = sg->sge->cap_states[next_cap_idx].cap;
-	eenv->cpu[cpu].nrg = eenv->energy - energy;
-	eenv->cpu[cpu].used = 1;
 
 	return eenv->energy - energy;
 }
@@ -5675,34 +5679,29 @@ static inline int __energy_diff(struct energy_env *eenv)
 	if (!sd)
 		return 0; /* Error */
 
-	compute_task_energy(eenv, eenv->src_cpu);
-	compute_task_energy(eenv, eenv->dst_cpu);
-
-	eenv->cap_delta  = eenv->cpu[eenv->dst_cpu].cap -
-			   eenv->cpu[eenv->src_cpu].cap;
-	eenv->nrg_diff   = eenv->cpu[eenv->dst_cpu].nrg -
-			   eenv->cpu[eenv->src_cpu].nrg;
+	eenv->nrg.before = compute_task_energy(eenv, eenv->src_cpu);
+	eenv->nrg.after  = compute_task_energy(eenv, eenv->dst_cpu);
+	eenv->nrg.diff   = eenv->nrg.after - eenv->nrg.before;
 	eenv->payoff     = 0;
 
 #ifndef CONFIG_SCHED_TUNE
 	trace_sched_energy_diff(eenv->task,
-		eenv->src_cpu, eenv->dst_cpu, eenv->util_delta,
-		eenv->cpu[eenv->src_cpu].nrg, eenv->cpu[eenv->dst_cpu].nrg,
-		eenv->nrg_diff,
-		eenv->cpu[eenv->src_cpu].cap, eenv->cpu[eenv->dst_cpu].cap,
-		eenv->cap_delta, eenv->nrg.delta, eenv->payoff);
+			eenv->src_cpu, eenv->dst_cpu, eenv->util_delta,
+			eenv->nrg.before, eenv->nrg.after, eenv->nrg.diff,
+			eenv->cap.before, eenv->cap.after, eenv->cap.delta,
+			eenv->nrg.delta, eenv->payoff);
 #endif
 	/*
 	 * Dead-zone margin preventing too many migrations.
 	 */
 
-	margin = eenv->cpu[eenv->src_cpu].nrg >> 6; /* ~1.56% */
+	margin = eenv->nrg.before >> 6; /* ~1.56% */
 
-	diff = eenv->nrg_diff;
+	diff = eenv->nrg.after - eenv->nrg.before;
 
-	eenv->nrg_diff = (abs(diff) < margin) ? 0 : diff;
+	eenv->nrg.diff = (abs(diff) < margin) ? 0 : eenv->nrg.diff;
 
-	return eenv->nrg_diff;
+	return eenv->nrg.diff;
 }
 
 #ifdef CONFIG_SCHED_TUNE
@@ -5770,33 +5769,27 @@ energy_diff(struct energy_env *eenv)
 	/* Return energy diff when boost margin is 0 */
 	if (boost == 0) {
 		trace_sched_energy_diff(eenv->task,
-			eenv->src_cpu, eenv->dst_cpu,
-			eenv->util_delta,
-			eenv->cpu[eenv->src_cpu].nrg,
-			eenv->cpu[eenv->dst_cpu].nrg,
-			eenv->nrg_diff,
-			eenv->cpu[eenv->src_cpu].cap,
-			eenv->cpu[eenv->dst_cpu].cap,
-			eenv->cap_delta, 0, -eenv->nrg_diff);
-		return eenv->nrg_diff;
+				eenv->src_cpu, eenv->dst_cpu, eenv->util_delta,
+				eenv->nrg.before, eenv->nrg.after, eenv->nrg.diff,
+				eenv->cap.before, eenv->cap.after, eenv->cap.delta,
+				0, -eenv->nrg.diff);
+		return eenv->nrg.diff;
 	}
 
 	/* Compute normalized energy diff */
-	nrg_delta = normalize_energy(eenv->nrg_diff);
-	eenv->nrg_delta = nrg_delta;
+	nrg_delta = normalize_energy(eenv->nrg.diff);
+	eenv->nrg.delta = nrg_delta;
 
 	eenv->payoff = schedtune_accept_deltas(
-			eenv->nrg_delta,
-			eenv->cap_delta,
+			eenv->nrg.delta,
+			eenv->cap.delta,
 			eenv->task);
 
 	trace_sched_energy_diff(eenv->task,
-		eenv->src_cpu, eenv->dst_cpu,
-		eenv->util_delta,
-		eenv->cpu[eenv->src_cpu].nrg, eenv->cpu[eenv->dst_cpu].nrg,
-		eenv->nrg_diff,
-		eenv->cpu[eenv->src_cpu].cap, eenv->cpu[eenv->dst_cpu].cap,
-		eenv->cap_delta, eenv->nrg_delta, eenv->payoff);
+			eenv->src_cpu, eenv->dst_cpu, eenv->util_delta,
+			eenv->nrg.before, eenv->nrg.after, eenv->nrg.diff,
+			eenv->cap.before, eenv->cap.after, eenv->cap.delta,
+			eenv->nrg.delta, eenv->payoff);
 
 	/*
 	 * When SchedTune is enabled, the energy_diff() function will return
