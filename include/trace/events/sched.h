@@ -655,26 +655,6 @@ TRACE_EVENT(sched_contrib_scale_f,
 		  __entry->cpu_scale_factor)
 );
 
-/*
- * Tracepoint for energy calculation duration
- */
-TRACE_EVENT(sched_energy_calc_duration,
-
-	TP_PROTO(int duration),
-
-	TP_ARGS(duration),
-
-	TP_STRUCT__entry(
-		__field( int,		duration		)
-	),
-
-	TP_fast_assign(
-		__entry->duration	= duration;
-	),
-
-	TP_printk("duration=%d", __entry->duration)
-);
-
 #ifdef CONFIG_SMP
 
 #ifdef CONFIG_SCHED_WALT
