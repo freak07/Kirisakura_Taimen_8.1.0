@@ -6554,19 +6554,23 @@ static inline int find_best_idle_target(struct task_struct *p, int *backup_cpu,
 	return target_cpu;
 }
 
-static inline int find_best_nrg_target(struct task_struct *p, bool boosted,
-				       struct energy_env *eenv)
+static inline int find_best_nrg_target(struct task_struct *p, int *backup_cpu,
+				       bool boosted)
 {
 	unsigned long best_idle_min_cap_orig = ULONG_MAX;
 	unsigned long min_util = boosted_task_util(p);
 	unsigned long target_capacity = ULONG_MAX;
 	unsigned long target_max_spare_cap = 0;
+	unsigned long target_util = ULONG_MAX;
 	int best_idle_cstate = INT_MAX;
 	struct sched_domain *sd;
         struct sched_group *sg;
+	int best_active_cpu = -1;
 	int best_idle_cpu = -1;
 	int target_cpu = -1;
 	int cpu, i;
+
+	*backup_cpu = -1;
 
 	schedstat_inc(p, se.statistics.nr_wakeups_fbt_attempts);
 	schedstat_inc(this_rq(), eas_stats.fbt_attempts);
@@ -6590,13 +6594,6 @@ static inline int find_best_nrg_target(struct task_struct *p, bool boosted,
 	/* Scan CPUs in all SDs */
 	sg = sd->groups;
 	do {
-		best_idle_min_cap_orig = ULONG_MAX;
-		target_capacity = ULONG_MAX;
-		target_max_spare_cap = 0;
-		best_idle_cstate = INT_MAX;
-		best_idle_cpu = -1;
-		target_cpu = -1;
-
 		for_each_cpu_and(i, tsk_cpus_allowed(p), sched_group_cpus(sg)) {
 			unsigned long capacity_orig = capacity_orig_of(i);
 			unsigned long wake_util, new_util;
@@ -6718,16 +6715,25 @@ static inline int find_best_nrg_target(struct task_struct *p, bool boosted,
 			target_cpu = i;
 		}
 
-		if (target_cpu != -1)
-			cpumask_set_cpu(target_cpu, &eenv->cpus_mask);
-
-		if (best_idle_cpu != -1)
-			cpumask_set_cpu(best_idle_cpu, &eenv->cpus_mask);
-
-		trace_sched_find_best_target(p, 0, min_util, cpu,
-				best_idle_cpu, -1, target_cpu);
-
 	} while (sg = sg->next, sg != sd->groups);
+
+	/*
+	 * For non latency sensitive tasks, cases B and C in the previous loop,
+	 * we pick the best IDLE CPU only if we was not able to find a target
+	 * ACTIVE CPU.
+	 *
+	 * Policies priorities for NON prefer_idle tasks:
+	 *
+	 *   a) ACTIVE CPU: target_cpu
+	 *   b) IDLE CPU: best_idle_cpu
+	 */
+	if (target_cpu == -1)
+		target_cpu = best_idle_cpu;
+	else
+		*backup_cpu = best_idle_cpu;
+
+	trace_sched_find_best_target(p, 0, min_util, cpu, best_idle_cpu,
+				     best_active_cpu, target_cpu);
 
 	schedstat_inc(p, se.statistics.nr_wakeups_fbt_count);
 	schedstat_inc(this_rq(), eas_stats.fbt_count);
@@ -6798,25 +6804,24 @@ select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync)
 		goto unlock;
 
 	/* Find a cpu with sufficient capacity */
-	if (prefer_idle) {
+	if (prefer_idle)
 		tmp_target = find_best_idle_target(p, &tmp_backup, boosted);
+	else
+		tmp_target = find_best_nrg_target(p, &tmp_backup, boosted);
 
-		if (tmp_target >= 0)
+	if (tmp_target >= 0) {
+		if ((boosted || prefer_idle) && idle_cpu(tmp_target)) {
+			schedstat_inc(p, se.statistics.nr_wakeups_secb_idle_bt);
+			schedstat_inc(this_rq(), eas_stats.secb_idle_bt);
 			target_cpu = tmp_target;
-		else if (tmp_backup >= 0)
-			target_cpu = tmp_backup;
-
-		schedstat_inc(p, se.statistics.nr_wakeups_secb_idle_bt);
-		schedstat_inc(this_rq(), eas_stats.secb_idle_bt);
-		goto unlock;
+			goto unlock;
+		}
 	}
 
 	memset(eenv, 0x0, sizeof(*eenv));
 	cpumask_clear(&eenv->cpus_mask);
 	eenv->util_delta = task_util(p);
 	eenv->task = p;
-
-	find_best_nrg_target(p, boosted, eenv);
 
 #ifdef CONFIG_SCHED_WALT
 	if (!walt_disabled && sysctl_sched_use_walt_cpu_util &&
@@ -6830,6 +6835,11 @@ select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync)
 	} else {
 		cpumask_set_cpu(prev_cpu, &eenv->cpus_mask);
 	}
+
+	if (tmp_target >= 0)
+		cpumask_set_cpu(tmp_target, &eenv->cpus_mask);
+	if (tmp_backup >= 0)
+		cpumask_set_cpu(tmp_backup, &eenv->cpus_mask);
 
 	if (!cpumask_weight(&eenv->cpus_mask)) {
 		schedstat_inc(p, se.statistics.nr_wakeups_secb_count);
