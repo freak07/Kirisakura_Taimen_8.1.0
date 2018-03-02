@@ -4860,6 +4860,8 @@ static int __init cfq_init(void)
 {
 	int ret;
 
+	cfq_slice_idle = 0;
+
 #ifdef CONFIG_CFQ_GROUP_IOSCHED
 	ret = blkcg_policy_register(&blkcg_policy_cfq);
 	if (ret)
