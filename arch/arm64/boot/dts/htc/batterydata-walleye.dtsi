@@ -21,6 +21,7 @@
 	qcom,fg-empty-voltage = <3200>;
 	qcom,hold-soc-while-full;
 	qcom,linearize-soc;
+	qcom,cl-max-decrement = <5>;
 };
 
 &pmi8998_charger {
