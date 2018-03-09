@@ -154,6 +154,7 @@ struct sdhci_msm_pltfm_data {
 	struct sdhci_msm_pm_qos_data pm_qos_data;
 	bool core_3_0v_support;
 	bool sdr104_wa;
+	int slot_type;
 };
 
 struct sdhci_msm_bus_vote {
@@ -226,6 +227,7 @@ struct sdhci_msm_host {
 	bool tuning_in_progress;
 	bool mci_removed;
 	const struct sdhci_msm_offset *offset;
+	struct proc_dir_entry	*speed_class;
 };
 
 extern char *saved_command_line;
