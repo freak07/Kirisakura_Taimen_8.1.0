@@ -2743,7 +2743,7 @@ static ssize_t debugfs_trace_method_get(struct file *file, char __user *buf,
 		len = snprintf(debug_buf, sizeof(debug_buf), "xor\n");
 	else
 		return -EINVAL;
-	rc = simple_read_from_buffer((void __user *) buf, len, ppos,
+	rc = simple_read_from_buffer((void __user *) buf, count, ppos,
 				     (void *) debug_buf, len);
 
 	mutex_unlock(&debug_buf_mutex);
