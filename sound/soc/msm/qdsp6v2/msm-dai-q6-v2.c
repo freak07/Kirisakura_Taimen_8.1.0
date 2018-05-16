@@ -1257,6 +1257,9 @@ static int msm_dai_q6_spdif_hw_params(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_FORMAT_S24_3LE:
 		dai_data->spdif_port.cfg.bit_width = 24;
 		break;
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		dai_data->spdif_port.cfg.bit_width = 24;
+                break;
 	default:
 		pr_err("%s: format %d\n",
 			__func__, params_format(params));
@@ -1495,6 +1498,9 @@ static int msm_dai_q6_cdc_hw_params(struct snd_pcm_hw_params *params,
 	case SNDRV_PCM_FORMAT_S24_3LE:
 		dai_data->port_config.i2s.bit_width = 24;
 		break;
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		dai_data->port_config.i2s.bit_width = 24;
+                break;
 	default:
 		pr_err("%s: format %d\n",
 			__func__, params_format(params));
