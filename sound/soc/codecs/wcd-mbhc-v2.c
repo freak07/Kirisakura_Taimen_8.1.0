@@ -52,6 +52,8 @@
 #define MAX_IMPED 60000
 
 int g_jack_det_invert = 0;
+uint32_t g_ZL = 0;
+uint32_t g_ZR = 0;
 
 #define WCD_MBHC_BTN_PRESS_COMPL_TIMEOUT_MS  50
 #define ANC_DETECT_RETRY_CNT 7
