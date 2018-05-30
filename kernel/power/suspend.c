@@ -367,7 +367,8 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 	error = disable_nonboot_cpus();
 	if (error || suspend_test(TEST_CPUS)) {
 		log_suspend_abort_reason("Disabling non-boot cpus failed");
-		goto Enable_cpus;
+		enable_nonboot_cpus();
+		goto Platform_wake;
 	}
 
 	arch_suspend_disable_irqs();
@@ -391,11 +392,10 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 		syscore_resume();
 	}
 
+	enable_nonboot_cpus();
+
 	arch_suspend_enable_irqs();
 	BUG_ON(irqs_disabled());
-
- Enable_cpus:
-	enable_nonboot_cpus();
 
  Platform_wake:
 	platform_resume_noirq(state);
