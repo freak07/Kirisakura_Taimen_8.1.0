@@ -175,7 +175,7 @@ enum tasha_sido_voltage {
 
 static enum codec_variant codec_ver;
 
-static int huwifi_mode = 1;
+static int huwifi_mode = 0;
 module_param(huwifi_mode, int,
 	S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(huwifi_mode, "enable/disable l UHQA Mode");
