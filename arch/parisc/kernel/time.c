@@ -233,7 +233,7 @@ static int __init rtc_init(void)
 }
 device_initcall(rtc_init);
 
-void read_persistent_clock(struct timespec *ts)
+void read_persistent_clock64(struct timespec64 *ts)
 {
 	static struct pdc_tod tod_data;
 	if (pdc_tod_read(&tod_data) == 0) {
