@@ -2549,12 +2549,13 @@ static int touch_fb_notifier_callback(struct notifier_block *self,
 		container_of(self, struct fts_ts_info, fb_notif);
 	struct fb_event *ev = (struct fb_event *)data;
 
-	if (ev && ev->data) {
+	if (ev && ev->data && event == FB_EARLY_EVENT_BLANK) {
 		int *blank = (int *)ev->data;
-		if (event == FB_EARLY_EVENT_BLANK && *blank != FB_BLANK_UNBLANK)
-			fts_suspend(info->client, PMSG_SUSPEND);
-		else if (event == FB_EVENT_BLANK && *blank == FB_BLANK_UNBLANK)
+
+		if (*blank == FB_BLANK_UNBLANK)
 			fts_resume(info->client);
+		else
+			fts_suspend(info->client, PMSG_SUSPEND);
 	}
 
 	return 0;
