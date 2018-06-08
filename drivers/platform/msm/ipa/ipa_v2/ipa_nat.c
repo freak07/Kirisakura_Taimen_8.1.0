@@ -328,6 +328,8 @@ int ipa2_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 
 	mutex_lock(&ipa_ctx->nat_mem.lock);
 
+	mutex_lock(&ipa_ctx->nat_mem.lock);
+
 	if (!ipa_ctx->nat_mem.is_dev_init) {
 		IPAERR_RL("Nat table not initialized\n");
 		mutex_unlock(&ipa_ctx->nat_mem.lock);
