@@ -58,7 +58,6 @@
 		qcom,panel-allow-phy-poweroff;
 		qcom,ulps-enabled;
 		qcom,suspend-ulps-enabled;
-		qcom,err-detect-enabled = <1>;
 		qcom,partial-update-enabled;
 		qcom,panel-roi-alignment = <1440 160 1440 160 1440 160>;
 
