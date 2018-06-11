@@ -75,3 +75,5 @@ obj-$(CONFIG_ACCESS_RAMOOPS)	+= access_ramoops.o
 # TODO: remove me b/62058353
 subdir-ccflags-y += \
 	-Wno-ignored-attributes
+
+obj-$(CONFIG_DTS_EAGLE)         += dts_eagle/
