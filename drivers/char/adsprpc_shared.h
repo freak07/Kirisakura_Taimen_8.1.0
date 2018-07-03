@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,7 +113,7 @@ do {\
 
 struct remote_buf64 {
 	uint64_t pv;
-	uint64_t len;
+	int64_t len;
 };
 
 union remote_arg64 {
@@ -163,7 +163,7 @@ struct fastrpc_ioctl_init {
 struct fastrpc_ioctl_init_attrs {
 		struct fastrpc_ioctl_init init;
 		int attrs;
-		unsigned int siglen;
+		int siglen;
 };
 
 struct fastrpc_ioctl_munmap {
@@ -174,7 +174,7 @@ struct fastrpc_ioctl_munmap {
 struct fastrpc_ioctl_mmap {
 	int fd;				/* ion fd */
 	uint32_t flags;			/* flags for dsp to map with */
-	uintptr_t vaddrin;		/* optional virtual address */
+	uintptr_t vaddrin;	/* optional virtual address */
 	size_t size;			/* size */
 	uintptr_t vaddrout;		/* dsps virtual address */
 };
@@ -228,7 +228,7 @@ static inline struct smq_invoke_buf *smq_invoke_buf_start(remote_arg64_t *pra,
 static inline struct smq_phy_page *smq_phy_page_start(uint32_t sc,
 						struct smq_invoke_buf *buf)
 {
-	uint64_t nTotal = REMOTE_SCALARS_INBUFS(sc)+REMOTE_SCALARS_OUTBUFS(sc);
+	uint32_t nTotal = REMOTE_SCALARS_INBUFS(sc)+REMOTE_SCALARS_OUTBUFS(sc);
 	return (struct smq_phy_page *)(&buf[nTotal]);
 }
 
