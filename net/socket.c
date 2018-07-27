@@ -91,6 +91,7 @@
 #include <linux/xattr.h>
 #include <linux/seemp_api.h>
 #include <linux/seemp_instrumentation.h>
+#include <linux/nospec.h>
 
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
