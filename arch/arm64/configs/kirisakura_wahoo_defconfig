@@ -1,4 +1,4 @@
-CONFIG_LOCALVERSION="Kirisakura-Kernel-Aurora-4.1.2"
+CONFIG_LOCALVERSION="Kirisakura-Kernel-Aurora-4.1.4"
 # CONFIG_LOCALVERSION_AUTO is not set
 CONFIG_KERNEL_LZ4=y
 # CONFIG_SWAP is not set
