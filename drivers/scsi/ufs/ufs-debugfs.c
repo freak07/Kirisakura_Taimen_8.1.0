@@ -1593,9 +1593,6 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 	}
 
 	if (IS_ENABLED(CONFIG_BOARD_MUSKIE) || IS_ENABLED(CONFIG_BOARD_TAIMEN)) {
-		debugfs_create_file("dump_health_desc", S_IRUSR,
-			hba->debugfs_files.debugfs_root, hba,
-			&ufsdbg_dump_health_desc);
 		debugfs_create_file("show_hba", S_IRUSR,
 			hba->debugfs_files.debugfs_root, hba,
 			&ufsdbg_show_hba_fops);
