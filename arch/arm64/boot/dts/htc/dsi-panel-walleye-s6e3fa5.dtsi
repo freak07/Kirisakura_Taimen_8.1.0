@@ -63,11 +63,7 @@
 		qcom,mdss-dsi-te-check-enable;
 		qcom,mdss-dsi-te-using-te-pin;
 		qcom,dcs-cmd-by-left;
-		qcom,panel-allow-phy-poweroff;
 		qcom,ulps-enabled;
-		qcom,suspend-ulps-enabled;
-		qcom,partial-update-enabled;
-		qcom,panel-roi-alignment = <1080 8 1080 8 1080 8>;
 		qcom,mdss-dsi-on-command = [
 			05 01 00 00 78 00 02 11 00 /* sleep out */
 			05 01 00 00 00 00 02 35 00 /* TE on */
@@ -85,6 +81,7 @@
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 		/* qcom,mdss-dsi-default-command-state = "dsi_hs_mode"; */
 		qcom,cont-splash-enabled;
+		qcom,mdss-dsi-lp11-init;
 		qcom,panel-supply-entries = <&dsi_panel_pwr_supply_s6e3fa5>;
 		qcom,alpm-bl-threshold = <27>;
 		qcom,alpm-off-command = [
